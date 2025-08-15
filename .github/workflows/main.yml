@@ -1,0 +1,48 @@
+name: Deploy Cryptonaut Vaults
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install Solana CLI
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/solana-labs/solana/master/scripts/install-solana.sh | sh
+          solana config set --url https://api.devnet.solana.com
+
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/project-serum/anchor anchor-cli --locked
+
+      - name: Setup environment
+        run: |
+          export ANCHOR_WALLET=$HOME/.config/solana/id.json
+          echo "ANCHOR_WALLET=$ANCHOR_WALLET" >> $GITHUB_ENV
+          echo "SOLANA_CONFIG=$HOME/.config/solana/cli-config.yaml" >> $GITHUB_ENV
+
+      - name: Make deploy.sh executable
+        run: chmod +x deploy.sh
+
+      - name: Run Deployment
+        run: ./deploy.sh
+
+      - name: Show final output
+        run: |
+          echo "🎉 Deployment finished!"
