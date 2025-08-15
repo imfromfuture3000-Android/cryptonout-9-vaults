@@ -3,8 +3,8 @@ name: Deploy Cryptonaut Vaults
 on:
   push:
     branches:
-      - main   # Trigger on pushes to main
-  workflow_dispatch:  # Allow manual trigger
+      - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -41,6 +41,38 @@ jobs:
           echo "WALLET_KEYPAIR=~/.config/solana/id.json" >> $GITHUB_ENV
           mkdir -p ~/.config/solana
           echo "${{ secrets.SOLANA_KEYPAIR }}" > ~/.config/solana/id.json
+
+      - name: Ensure deploy.sh exists
+        run: |
+          if [ ! -f deploy.sh ]; then
+            echo "🚀 Creating deploy.sh"
+            cat << 'EOF' > deploy.sh
+#!/bin/bash
+set -e
+
+echo "🚀 Starting deployment..."
+
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+else
+  echo "❌ No .env file found."
+  exit 1
+fi
+
+solana config set --url $RPC_URL
+solana config set --keypair $WALLET_KEYPAIR
+
+anchor build
+anchor deploy --provider.cluster $SOLANA_CLUSTER
+
+PROGRAM_ID=$(solana address -k target/deploy/*.json)
+echo "✅ Program deployed with ID: $PROGRAM_ID"
+
+node scripts/generate_pdas.js $PROGRAM_ID
+
+echo "🌌 Deployment complete!"
+EOF
+          fi
 
       - name: Make deploy.sh executable
         run: chmod +x deploy.sh
